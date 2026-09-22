@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:latest
+    image: confluentinc/cp-zookeeper:7.9.0
     ports:
       - "2181:2181"
     environment:
@@ -11,7 +11,7 @@ services:
       - kafka-net
 
   kafka:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.9.0
     depends_on:
       - zookeeper
     ports:
@@ -28,7 +28,7 @@ services:
       - kafka-net
 
   init-topics:
-    image: confluentinc/cp-kafka:latest
+    image: confluentinc/cp-kafka:7.9.0
     depends_on:
       - kafka
     entrypoint: >
