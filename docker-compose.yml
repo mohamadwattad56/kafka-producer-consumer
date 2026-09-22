@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+      - kafka-net
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_DELETE_TOPIC_ENABLE: 'true'
+    networks:
+      - kafka-net
+
+  init-topics:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    entrypoint: >
+      sh -c "
+      echo 'Waiting for Kafka to be ready...';
+      while ! kafka-topics --list --bootstrap-server kafka:9092; do
+        sleep 5;
+      done;
+      kafka-topics --create --topic order-create-events --partitions 1 --replication-factor 1 --bootstrap-server kafka:9092 &&
+      kafka-topics --create --topic order-update-events --partitions 1 --replication-factor 1 --bootstrap-server kafka:9092 &&
+      kafka-topics --create --topic producer-dlx --partitions 1 --replication-factor 1 --bootstrap-server kafka:9092 &&
+      kafka-topics --create --topic consumer-dlx --partitions 1 --replication-factor 1 --bootstrap-server kafka:9092 ;
+      echo 'Topics created.';
+      "
+    networks:
+      - kafka-net
+
+  producer:
+    image: mohamadwattad/kafka-producer:latest
+    depends_on:
+      - kafka
+      - mongodb
+      - init-topics
+    ports:
+      - "8080:8080"
+    networks:
+      - kafka-net
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongoKafka:27017/ecommerce
+
+  consumer:
+    image: mohamadwattad/kafka-consumer:latest
+    depends_on:
+      - kafka
+      - mongodb
+      - init-topics
+    ports:
+      - "8081:8081"
+    networks:
+      - kafka-net
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://mongoKafka:27017/ecommerce
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongoKafka
+    ports:
+      - "27017:27017"
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge
